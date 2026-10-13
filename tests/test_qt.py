@@ -120,6 +120,15 @@ class GuiTests(unittest.TestCase):
         self.assertEqual(self.window.quality_rating.text(), "No live reading")
         self.assertIsNone(self.window.quality_meter.value)
 
+    def test_probe_error_is_displayed_as_plain_text(self):
+        from PySide6.QtCore import Qt
+        self.add_reading()
+        self.monitor.gateway = "192.0.2.1"
+        self.monitor.ping_error = "<b>probe error</b>"
+        self.window.render()
+        self.assertEqual(self.window.latency_note.text(), "<b>probe error</b>")
+        self.assertEqual(self.window.latency_note.textFormat(), Qt.TextFormat.PlainText)
+
     def test_quality_meter_is_live_and_independent_of_sensitivity(self):
         self.add_reading()
         self.assertEqual(self.window.quality_rating.text(), "Good · -60 dBm")

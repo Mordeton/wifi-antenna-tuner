@@ -267,6 +267,7 @@ class MainWindow(QMainWindow):
         latency_layout.addWidget(self.latency_value)
         latency_layout.addWidget(label("milliseconds  ·  lower is better"))
         self.latency_note = label("Waiting for the router…")
+        self.latency_note.setTextFormat(Qt.TextFormat.PlainText)
         self.latency_note.setWordWrap(True)
         latency_layout.addWidget(self.latency_note)
         latency_layout.addStretch()

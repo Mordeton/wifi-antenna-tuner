@@ -2,6 +2,7 @@
 
 from collections import deque
 from dataclasses import dataclass, field
+import ipaddress
 import math
 import re
 import statistics
@@ -36,7 +37,10 @@ def parse_interfaces(output: str) -> dict[str, Interface]:
         text = line.strip()
         if text.startswith("Interface "):
             commit()
-            current = Interface(text.removeprefix("Interface "))
+            name = text.removeprefix("Interface ")
+            # Adapter names become command arguments. Ignore unexpected names
+            # rather than letting one be interpreted as a command option.
+            current = Interface(name) if re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.:-]{0,14}", name) else None
             managed = False
         elif text.startswith("Unnamed/non-netdev interface") or text.startswith("phy#"):
             commit()
@@ -71,10 +75,25 @@ def parse_networks(output: str) -> dict[str, Network]:
                 current.driver = value if value != "--" else ""
             elif key == "GENERAL.STATE":
                 current.connected = value.startswith("100 ") or value == "100"
-            elif key in ("IP4.GATEWAY", "IP6.GATEWAY") and value not in ("", "--"):
-                if key == "IP4.GATEWAY" or not current.gateway:
-                    current.gateway = value
+            elif key in ("IP4.GATEWAY", "IP6.GATEWAY"):
+                gateway = valid_gateway(value)
+                if gateway and (key == "IP4.GATEWAY" or not current.gateway):
+                    current.gateway = gateway
     return networks
+
+
+def valid_gateway(value: str) -> str:
+    """Only send router probes to a literal, unicast IP gateway."""
+    try:
+        address = ipaddress.ip_address(value)
+    except ValueError:
+        return ""
+    if address.is_unspecified or address.is_multicast or address.is_loopback:
+        return ""
+    if isinstance(address, ipaddress.IPv4Address) and int(address) == 0xffffffff:
+        return ""
+    # -I chooses the selected adapter; discard any scope supplied in metadata.
+    return str(address).split("%", 1)[0]
 
 
 @dataclass
@@ -108,11 +127,12 @@ def parse_signal(value: str) -> tuple[float, tuple[float, ...]]:
 def parse_station(output: str, interface: str) -> Station | None:
     if not output.strip() or output.strip() == "Not connected.":
         return None
-    headers = re.findall(r"^Station ([0-9a-fA-F:]{17}) \(on ([^)]+)\)", output, re.MULTILINE)
-    if len(headers) != 1 or headers[0][1] != interface:
+    lines = output.splitlines()
+    header = re.fullmatch(r"Station ((?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}) \(on ([^)]+)\)", lines[0])
+    if not header or header[2] != interface or any(line.startswith("Station ") for line in lines[1:]):
         raise ValueError("Unexpected station identity")
-    station = Station(headers[0][0].lower())
-    for line in output.splitlines()[1:]:
+    station = Station(header[1].lower())
+    for line in lines[1:]:
         key, sep, value = line.strip().partition(":")
         if not sep:
             continue

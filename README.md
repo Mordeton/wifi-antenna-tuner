@@ -59,6 +59,14 @@ To uninstall, close the app and run:
 
 The uninstaller asks for confirmation. Use `--yes` for unattended removal. For a custom installation path, use the `uninstall.sh` in that directory. If an OS update replaces Python or Qt and launching fails, rerun the installer from a current source checkout/archive to rebuild the app's environment. There are no background services or persistent measurement databases.
 
+## Safety and privacy
+
+The app reads adapter and connection information without changing Wi-Fi settings. Router probes target only a literal unicast gateway address reported by NetworkManager, through the selected Wi-Fi interface. The app does not use a shell to run measurement commands. Signal history and probe results stay in memory.
+
+The installer runs as a regular user and uses the selected installation and shortcut locations. It refuses source/install path overlap, symlinks in copied source files, malformed installation records, and missing original-shortcut backups. Shortcut replacements use temporary files and atomic renames, so an existing hard link cannot alter another file. Failed upgrades attempt to restore the previous installation and shortcut contents. If rollback cannot finish, the installer reports the affected path rather than claiming success.
+
+The private GitHub repository has Dependabot vulnerability alerts enabled. Its test workflow has read-only repository permission and does not keep checkout credentials in the job workspace. Alerts and tests help identify problems; they do not make downloaded software trustworthy on their own. Install from the authenticated private repository or its release page.
+
 ## Find a good placement
 
 1. Watch the big **signal strength** number while moving or rotating the antenna. Less-negative numbers are stronger: **−50 dBm is stronger than −70 dBm**.

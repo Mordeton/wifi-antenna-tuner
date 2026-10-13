@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shlex
 import shutil
 import subprocess
@@ -17,6 +18,8 @@ import uuid
 
 APP_ID = "wifi-antenna-tuner"
 MANIFEST = ".install-manifest.json"
+SOURCE_DIRECTORIES = ("antenna_tuner", "assets", "packaging")
+SOURCE_FILES = ("README.md", "requirements.txt", "launch.sh", "install.sh")
 QT_CHECK = (
     "import PySide6; from PySide6 import QtCore, QtWidgets, QtMultimedia; "
     "v=tuple(int(x) for x in PySide6.__version__.split('.')[:2]); "
@@ -42,6 +45,8 @@ def path_value(value):
     path = Path(value).expanduser().absolute()
     if any(char in str(path) for char in "\n\r\x00"):
         raise InstallError("Installation paths cannot contain line breaks or NUL characters")
+    if ".." in path.parts:
+        raise InstallError("Installation paths cannot contain '..' components")
     return path
 
 
@@ -151,15 +156,62 @@ def digest(data):
 
 def read_manifest(prefix):
     path = prefix / MANIFEST
+    if path.is_symlink():
+        raise InstallError("Refusing to use a symlinked installation manifest")
     if not path.exists():
         return None
     try:
         data = json.loads(path.read_text())
     except (OSError, ValueError) as exc:
         raise InstallError("The existing installation manifest is unreadable") from exc
-    if data.get("app_id") != APP_ID or Path(data.get("prefix", "")).resolve() != prefix.resolve():
+    if not isinstance(data, dict) or data.get("schema") != 1 or data.get("app_id") != APP_ID:
         raise InstallError("The directory is not a recognized Wi-Fi Antenna Tuner installation")
+    recorded_prefix = data.get("prefix")
+    if not isinstance(recorded_prefix, str) or not Path(recorded_prefix).is_absolute() or Path(recorded_prefix).resolve() != prefix.resolve():
+        raise InstallError("The installation manifest does not match this directory")
+    records = data.get("shortcuts")
+    if not isinstance(records, list):
+        raise InstallError("The installation manifest has invalid shortcut records")
+    seen_paths = set()
+    seen_kinds = set()
+    seen_backups = set()
+    for record in records:
+        if not isinstance(record, dict) or record.get("kind") not in ("menu", "desktop"):
+            raise InstallError("The installation manifest has an invalid shortcut kind")
+        raw_path = record.get("path")
+        if not isinstance(raw_path, str) or not Path(raw_path).is_absolute():
+            raise InstallError("The installation manifest has an invalid shortcut path")
+        target = path_value(raw_path)
+        canonical_target = target.resolve()
+        if target.name != f"{APP_ID}.desktop" or canonical_target.is_relative_to(prefix.resolve()):
+            raise InstallError("The installation manifest has an unsafe shortcut path")
+        if canonical_target in seen_paths or record["kind"] in seen_kinds:
+            raise InstallError("The installation manifest has duplicate shortcuts")
+        seen_paths.add(canonical_target)
+        seen_kinds.add(record["kind"])
+        if not isinstance(record.get("installed_sha256"), str) or not re.fullmatch(r"[0-9a-f]{64}", record["installed_sha256"]):
+            raise InstallError("The installation manifest has an invalid shortcut digest")
+        backup = record.get("backup")
+        if backup is not None and (not isinstance(backup, str) or not re.fullmatch(r"\d+\.desktop", backup)):
+            raise InstallError("The installation manifest has an invalid shortcut backup")
+        if backup in seen_backups and backup is not None:
+            raise InstallError("The installation manifest has duplicate shortcut backups")
+        seen_backups.add(backup)
     return data
+
+
+def check_source(source):
+    """Avoid following links in an extracted source archive during copying."""
+    for name in SOURCE_DIRECTORIES:
+        directory = source / name
+        if directory.is_symlink() or not directory.is_dir():
+            raise InstallError(f"Missing or unsafe source directory: {directory}")
+        if any(item.is_symlink() for item in directory.rglob("*")):
+            raise InstallError(f"Refusing to copy symlinks from: {directory}")
+    for name in SOURCE_FILES:
+        path = source / name
+        if path.is_symlink() or not path.is_file():
+            raise InstallError(f"Missing or unsafe source file: {path}")
 
 
 def snapshot(path):
@@ -173,18 +225,29 @@ def restore(path, saved):
         path.unlink(missing_ok=True)
     else:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(saved[0])
-        path.chmod(saved[1])
+        temporary = path.with_name(f".{path.name}.tmp-{uuid.uuid4().hex}")
+        try:
+            with temporary.open("xb") as stream:
+                stream.write(saved[0])
+                stream.flush()
+                os.fsync(stream.fileno())
+            temporary.chmod(saved[1])
+            temporary.replace(path)
+        finally:
+            temporary.unlink(missing_ok=True)
 
 
 def original_shortcut(prefix, record):
     backup = record.get("backup")
     if not backup:
         return None
-    # Only our generated backup basenames are accepted.
-    if Path(backup).name != backup:
-        raise InstallError("Invalid shortcut backup in the installation manifest")
-    return snapshot(prefix / ".shortcut-backups" / backup)
+    backup_dir = prefix / ".shortcut-backups"
+    if backup_dir.is_symlink() or not backup_dir.is_dir():
+        raise InstallError("The original shortcut backup directory is missing or unsafe")
+    original = snapshot(backup_dir / backup)
+    if original is None:
+        raise InstallError("An original shortcut backup is missing; leaving installed files unchanged")
+    return original
 
 
 def refresh_launchers(applications_dir=None):
@@ -205,8 +268,11 @@ def refresh_launchers(applications_dir=None):
 
 def install(source, options):
     prefix = options.prefix
-    if prefix.is_symlink() or prefix.resolve() == source.resolve() or prefix.resolve() in source.resolve().parents:
-        raise InstallError("Choose an installation directory separate from the source and its parent directories")
+    source_path = source.resolve()
+    prefix_path = prefix.resolve()
+    if prefix.is_symlink() or prefix_path == source_path or prefix_path in source_path.parents or source_path in prefix_path.parents:
+        raise InstallError("Choose an installation directory outside the source tree and its parent directories")
+    check_source(source)
     old = read_manifest(prefix)
     if prefix.exists() and any(prefix.iterdir()) and old is None:
         raise InstallError(f"Refusing to replace an unrelated directory: {prefix}")
@@ -233,9 +299,9 @@ def install(source, options):
         prefix.rename(rollback)
     try:
         prefix.mkdir()
-        for directory in ("antenna_tuner", "assets", "packaging"):
+        for directory in SOURCE_DIRECTORIES:
             shutil.copytree(source / directory, prefix / directory, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
-        for name in ("README.md", "requirements.txt", "launch.sh", "install.sh"):
+        for name in SOURCE_FILES:
             shutil.copy2(source / name, prefix / name)
         for name in ("launch.sh", "install.sh"):
             (prefix / name).chmod(0o755)
@@ -264,8 +330,7 @@ def install(source, options):
                 backup = f"{index}.desktop"
                 restore(prefix / ".shortcut-backups" / backup, before)
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(entry)
-            path.chmod(0o755 if kind == "desktop" else 0o644)
+            restore(path, (entry, 0o755 if kind == "desktop" else 0o644))
             records.append({"kind": kind, "path": str(path), "installed_sha256": digest(entry), "backup": backup})
         wanted = {str(path) for _, path in selected}
         for path, record in previous.items():
@@ -278,13 +343,25 @@ def install(source, options):
             "installed_at": datetime.now(timezone.utc).isoformat(), "shortcuts": records,
         }
         (prefix / MANIFEST).write_text(json.dumps(manifest, indent=2) + "\n")
-    except BaseException:
+    except BaseException as original_error:
+        rollback_errors = []
         for path, before in saved.items():
-            restore(path, before)
+            try:
+                restore(path, before)
+            except OSError as exc:
+                rollback_errors.append(f"shortcut {path}: {exc}")
         if prefix.exists():
-            shutil.rmtree(prefix)
+            try:
+                shutil.rmtree(prefix)
+            except OSError as exc:
+                rollback_errors.append(f"new installation {prefix}: {exc}")
         if existed:
-            rollback.rename(prefix)
+            try:
+                rollback.rename(prefix)
+            except OSError as exc:
+                rollback_errors.append(f"previous installation {rollback}: {exc}")
+        if rollback_errors:
+            raise InstallError("Installation failed and rollback was incomplete: " + "; ".join(rollback_errors)) from original_error
         raise
     if existed:
         shutil.rmtree(rollback)

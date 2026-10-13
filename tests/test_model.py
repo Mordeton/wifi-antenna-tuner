@@ -64,7 +64,7 @@ class ParserTests(unittest.TestCase):
         self.assertIsNone(parse_station("Not connected.\n", "wlo1"))
 
     def test_malformed_and_mismatched_evidence(self):
-        for output in ("garbage", STATION.replace("-60 [-60, -61] dBm", "NaN dBm"), STATION.replace("tx retries: 69938", "tx retries: -1"), STATION + STATION):
+        for output in ("garbage", "garbage\n" + STATION, STATION + "Station malformed\n", STATION.replace("-60 [-60, -61] dBm", "NaN dBm"), STATION.replace("tx retries: 69938", "tx retries: -1"), STATION.replace("02:00:00:00:00:01", "0200:00:00:00:01"), STATION + STATION):
             with self.subTest(output=output[:70]):
                 with self.assertRaises(ValueError):
                     parse_station(output, "wlo1")
@@ -79,12 +79,23 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(interfaces["wlo1"].width, "80 MHz")
         self.assertIsNone(interfaces["wlan1"].frequency)
 
+    def test_unexpected_adapter_names_are_not_used_as_command_options(self):
+        self.assertEqual(parse_interfaces("phy#0\n Interface -o\n  type managed\n"), {})
+
     def test_networks_ipv4_preferred_ipv6_preserved(self):
         output = "GENERAL.DEVICE:wlo1\nGENERAL.DRIVER:iwlwifi\nGENERAL.STATE:100 (connected)\nIP4.GATEWAY:192.168.0.1\nIP6.GATEWAY:fe80::1\nGENERAL.DEVICE:wlan1\nGENERAL.STATE:100 (connected)\nIP4.GATEWAY:--\nIP6.GATEWAY:fe80::2"
         networks = parse_networks(output)
         self.assertEqual(networks["wlo1"].gateway, "192.168.0.1")
         self.assertEqual(networks["wlan1"].gateway, "fe80::2")
         self.assertTrue(networks["wlo1"].connected)
+
+    def test_router_probes_require_literal_unicast_gateway(self):
+        for gateway in ("-I", "example.com", "0.0.0.0", "255.255.255.255", "224.0.0.1", "127.0.0.1", "::", "ff02::1", "--"):
+            with self.subTest(gateway=gateway):
+                output = f"GENERAL.DEVICE:wlo1\nGENERAL.STATE:100 (connected)\nIP4.GATEWAY:{gateway}"
+                self.assertEqual(parse_networks(output)["wlo1"].gateway, "")
+        output = "GENERAL.DEVICE:wlo1\nGENERAL.STATE:100 (connected)\nIP6.GATEWAY:fe80::1%other-interface"
+        self.assertEqual(parse_networks(output)["wlo1"].gateway, "fe80::1")
 
     def test_ping_reply_and_loss(self):
         self.assertEqual(parse_ping("64 bytes from 192.168.0.1: icmp_seq=1 ttl=64 time=2.26 ms"), 2.26)
