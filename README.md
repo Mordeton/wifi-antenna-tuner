@@ -3,6 +3,7 @@
   <h1>Wi-Fi Antenna Tuner</h1>
   <p>Find a better position for your PC's Wi-Fi antenna. Move it, watch the live signal, and keep the spot that stays strongest.</p>
   <p><strong>Linux · Bazzite · KDE · PySide6</strong></p>
+  <p><strong>Implementation:</strong> OpenAI GPT-6 Astra &amp; GPT-6 Sol<br><strong>Idea and feedback:</strong> Mordeton</p>
   <p><a href="https://github.com/Mordeton/wifi-antenna-tuner/releases/latest">Latest release</a> · <a href="#install">Install</a> · <a href="#use-it">Use it</a> · <a href="#safety-and-privacy">Safety and privacy</a></p>
 </div>
 
@@ -23,16 +24,16 @@ The app reads Wi-Fi statistics and does not change network settings. Signal hist
 
 ## Install
 
-**Bazzite:** download the [latest release archive](https://github.com/Mordeton/wifi-antenna-tuner/releases/latest) while signed into an account with access to this private repository. Extract it, open a terminal in the extracted `wifi-antenna-tuner` folder, and run:
+**Bazzite:** download the [latest release archive](https://github.com/Mordeton/wifi-antenna-tuner/releases/latest). Extract it, open a terminal in the extracted `wifi-antenna-tuner` folder, and run:
 
 ```sh
 bash install.sh
 ```
 
-If you use GitHub CLI, you can install from a clone instead:
+You can also install from a clone:
 
 ```sh
-gh repo clone Mordeton/wifi-antenna-tuner
+git clone https://github.com/Mordeton/wifi-antenna-tuner.git
 cd wifi-antenna-tuner
 bash install.sh
 ```
@@ -111,7 +112,7 @@ The app runs `iw` and `nmcli` to read connection data. It runs `ping` only again
 
 The installer refuses root execution, overlapping source/install paths, symlinks in copied source files, damaged installation records, and missing original-shortcut backups. It replaces shortcuts atomically to avoid altering files that share an existing hard link. On a failed upgrade it tries to restore the old installation and reports any incomplete rollback.
 
-The private repository has [GitHub dependency alerts](https://github.com/Mordeton/wifi-antenna-tuner/security/dependabot) enabled. Its CI job has read-only repository permission and does not retain checkout credentials. Install from the authenticated repository or its release page.
+The repository has GitHub dependency alerts enabled. Its CI job has read-only repository permission and does not retain checkout credentials. Install from this repository or its release page.
 
 <details>
 <summary>Measurement details and limits</summary>
@@ -123,6 +124,12 @@ The private repository has [GitHub dependency alerts](https://github.com/Mordeto
 - Router probes run four times per second with a one-second reply deadline. The 30-second loss calculation excludes pending probes; RTT variation is the population standard deviation of replies. A delayed result never replaces a newer probe's result.
 
 </details>
+
+## Credits
+
+**OpenAI GPT-6 Astra and GPT-6 Sol**, through Codex, are credited for the code, installer, tests, and documentation. **Mordeton** supplied the original idea, requirements, hands-on testing, and feedback; Mordeton did not write the implementation code.
+
+Git history uses a shared model author identity. These are model credits, rather than linked GitHub user accounts. Mordeton owns the repository and publishes its releases.
 
 ## Development
 
