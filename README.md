@@ -1,10 +1,35 @@
-# Wi-Fi Antenna Tuner
+<div align="center">
+  <img src="assets/antenna-tuner.svg" width="88" height="88" alt="Wi-Fi Antenna Tuner icon">
+  <h1>Wi-Fi Antenna Tuner</h1>
+  <p>Find a better position for your PC's Wi-Fi antenna. Move it, watch the live signal, and keep the spot that stays strongest.</p>
+  <p><strong>Linux · Bazzite · KDE · PySide6</strong></p>
+  <p><a href="https://github.com/Mordeton/wifi-antenna-tuner/releases/latest">Latest release</a> · <a href="#install">Install</a> · <a href="#use-it">Use it</a> · <a href="#safety-and-privacy">Safety and privacy</a></p>
+</div>
 
-A native KDE/Wayland desktop tool for finding a better position for your PC's Wi-Fi antenna. Everything stays on your PC. The only measurement traffic is small ICMP probes to your local router, enabled by default and easily disabled.
+![Wi-Fi Antenna Tuner showing a live signal meter, Cisco quality scale, router latency, and signal history](docs/screenshot.png)
 
-## Install on Bazzite or Linux
+*Illustrative screenshot with generated readings and a demo network. No home network details are included.*
 
-Clone this private repository with an authenticated GitHub account that has access:
+## What you get
+
+- **Live signal:** a large dBm reading refreshed every 250 ms, plus a 60-second history graph.
+- **A fair comparison:** a trailing two-second average and the best settled average from this session. Reset it when trying a new position.
+- **An easy rating:** five Cisco signal-quality levels on a fixed scale, independent of the sensitivity setting.
+- **A second check:** router latency, 30-second packet loss, and jitter from small probes through the selected Wi-Fi adapter. Probing can be switched off.
+- **Eyes-free feedback:** optional faster beeps, continuous pitch, or both. Sound starts muted and has its own volume slider.
+- **Deeper details:** per-chain signal, link rates, actual traffic, retries, failures, and connection information in an expandable panel. F11 switches to fullscreen.
+
+The app reads Wi-Fi statistics and does not change network settings. Signal history stays in memory and disappears when you close it.
+
+## Install
+
+**Bazzite:** download the [latest release archive](https://github.com/Mordeton/wifi-antenna-tuner/releases/latest) while signed into an account with access to this private repository. Extract it, open a terminal in the extracted `wifi-antenna-tuner` folder, and run:
+
+```sh
+bash install.sh
+```
+
+If you use GitHub CLI, you can install from a clone instead:
 
 ```sh
 gh repo clone Mordeton/wifi-antenna-tuner
@@ -12,106 +37,99 @@ cd wifi-antenna-tuner
 bash install.sh
 ```
 
-You can also download the repository ZIP or release archive from GitHub while signed in, extract it, open a terminal in the extracted folder, and run **`bash install.sh`**.
+The installer asks separately about two shortcuts:
 
-The installer asks two separate questions:
+| Shortcut | Default | What it does |
+| --- | --- | --- |
+| Searchable application launcher | **Yes** | Adds “Wi-Fi Antenna Tuner” to the KDE app menu and KRunner. Search for `wifi` or `antenna`. |
+| Desktop shortcut | **No** | Adds an icon to your Desktop folder. |
 
-1. **Create a searchable application-menu / quick-launch icon?** Default: yes.
-2. **Create a desktop shortcut?** Default: no.
+To pin the app to the taskbar, launch it and use **Pin to Task Manager** from its taskbar icon's context menu. Installation is per-user: no `sudo`, OS package layering, or reboot. The app is copied to `~/.local/share/wifi-antenna-tuner/` by default, so you can remove the downloaded archive afterward.
 
-The application-menu icon is searchable in KDE's launcher and **KRunner** using “Wi-Fi Antenna Tuner”, “wifi”, or “antenna”. For a pinned quick-launch icon, start the app and right-click its taskbar icon → **Pin to Task Manager**. The installer creates the menu entry without changing your taskbar layout.
+**Requirements:** Linux, Python 3.10+, Python virtual-environment support, `iw`, NetworkManager's `nmcli`, and `ping`. The installer reuses compatible system PySide6 when present or installs it into the app's private environment. Bazzite's native tools were verified on the target PC. Other distributions may need `python3-venv`, Qt desktop/audio libraries, and a compatible PySide6 wheel. Dependency downloads require internet access.
 
-The app installs to `~/.local/share/wifi-antenna-tuner/` by default, or `$XDG_DATA_HOME/wifi-antenna-tuner/` when configured. It copies its files into that directory, so the original download can be removed afterward. It uses a private Python environment: compatible host PySide6 is reused when available; otherwise PySide6 is downloaded into that environment. No `sudo`, OS package layering, reboot, or system Python package installation is performed. This approach works with Bazzite's immutable system image. [Qt recommends virtual environments for PySide6](https://doc.qt.io/qtforpython-6/gettingstarted.html).
-
-Requirements: **Linux, Python 3.10+, virtual-environment support, `iw`, NetworkManager's `nmcli`, and `ping`**. The native tools and Python support were verified on the target Bazzite PC. On other distributions, install missing prerequisites through your distribution's package manager before running the installer. Debian/Ubuntu may require `python3-venv`; Qt also needs the platform's normal desktop/audio libraries. If Python cannot create an environment and `uv` is available, the installer can use it instead. Downloading PySide6 requires internet access and a wheel compatible with your architecture and Python version.
-
-For automation or custom locations:
+<details>
+<summary>Installer flags and custom locations</summary>
 
 ```sh
-# Defaults without questions: searchable launcher, no desktop shortcut.
-bash install.sh --yes
-
-# Both shortcuts, with no questions.
-bash install.sh --menu --desktop
-
-# Neither shortcut; run the installed launch.sh directly.
-bash install.sh --no-menu --no-desktop
-
-# Optional location overrides.
+bash install.sh --yes                    # Defaults without prompts: launcher yes, desktop no
+bash install.sh --menu --desktop         # Both shortcuts, without prompts
+bash install.sh --no-menu --no-desktop   # No shortcuts
 bash install.sh --prefix /path/to/app --applications-dir /path/to/applications --desktop-dir /path/to/Desktop
 ```
 
-## Launch, update, or uninstall
+The installer uses `$XDG_DATA_HOME` in place of `~/.local/share` when it is set.
 
-Search for **Wi-Fi Antenna Tuner** in your application menu or KRunner, or run:
+</details>
+
+## Use it
+
+1. Move or rotate the antenna while watching the large **Signal strength** number. Less negative is stronger: **−49 dBm is stronger than −60 dBm**.
+2. Leave it in each position for at least **two seconds**. Compare the **two-second average** and history graph; **Best average** remembers the strongest settled position until you reset it or the connection changes.
+3. Check **Router latency** and loss for stability. A router that blocks ICMP may show no replies even while signal readings continue.
+4. Set **Sensitivity** to suit the movement: 1× shows a broad 60 dB view; 3× is the default; 10× zooms to 6 dB. **Recenter** locks that view around the current reading. The raw dBm number and Cisco rating never change with sensitivity.
+5. Turn on **Sound** if you want to listen while moving the antenna. Pick **Faster beeps**, **Continuous pitch**, or **Pitch + beeps**. Higher signal makes beeps faster or pitch higher. Sound stops when measurements go stale or the adapter disconnects.
+
+The **Stats for nerds** panel stays expanded while readings update. Use **F11** for fullscreen and **Escape** to leave it.
+
+## Signal-quality scale
+
+The fixed meter follows [Cisco's IW9167E RSSI guidance](https://www.cisco.com/c/en/us/td/docs/IIOT/wireless/iw9167e/software/config/262x/iw9167-scg-262x/g_manage-the-workgroup-bridges-through-web-ui_wgb/t_modify-rssi-threshold.html):
+
+| Rating | Reading |
+| --- | --- |
+| Excellent | −50 dBm or stronger |
+| Good | −60 to below −50 dBm |
+| Fair | −70 to below −60 dBm |
+| Weak | −80 to below −70 dBm |
+| Very poor | Below −80 dBm |
+
+Cisco's ranges share endpoints; this app assigns an exact boundary to the stronger band. The pointer spans −100 to −30 dBm; the numerical reading is never clipped. Signal strength alone cannot show interference or guarantee a particular speed, so use router latency and loss alongside it.
+
+## Update or remove
+
+For a cloned checkout, update and run the installer again:
 
 ```sh
-~/.local/share/wifi-antenna-tuner/launch.sh
+git pull --ff-only
+bash install.sh
 ```
 
-To update a clone, run `git pull --ff-only` and `bash install.sh` again. For downloaded archives, download/extract the newer version and run its installer. An upgrade backs up the existing installation and restores it if installation fails. Existing same-name shortcut files are backed up; uninstall restores them. Shortcut files you edit afterward are retained during uninstall.
+For an archive, download and extract the newer release, then run its installer. An upgrade backs up the previous installation and restores it if installation fails. Existing same-name shortcut files are backed up; user-edited shortcuts are preserved during removal.
 
-To uninstall, close the app and run:
+To remove the default installation, close the app and run:
 
 ```sh
 ~/.local/share/wifi-antenna-tuner/uninstall.sh
 ```
 
-The uninstaller asks for confirmation. Use `--yes` for unattended removal. For a custom installation path, use the `uninstall.sh` in that directory. If an OS update replaces Python or Qt and launching fails, rerun the installer from a current source checkout/archive to rebuild the app's environment. There are no background services or persistent measurement databases.
+The uninstaller asks for confirmation; `--yes` skips the prompt. A custom installation has its own `uninstall.sh`. If an OS update replaces Python or Qt and the app stops launching, rerun the installer from a current checkout or release archive to rebuild its environment.
 
 ## Safety and privacy
 
-The app reads adapter and connection information without changing Wi-Fi settings. Router probes target only a literal unicast gateway address reported by NetworkManager, through the selected Wi-Fi interface. The app does not use a shell to run measurement commands. Signal history and probe results stay in memory.
+The app runs `iw` and `nmcli` to read connection data. It runs `ping` only against a literal unicast gateway reported by NetworkManager and bound to the selected Wi-Fi interface. It never scans for other networks, changes transmit power, reconnects Wi-Fi, or runs an internet speed test. Router probes are enabled by default and can be disabled in the app. No measurements are saved or uploaded.
 
-The installer runs as a regular user and uses the selected installation and shortcut locations. It refuses source/install path overlap, symlinks in copied source files, malformed installation records, and missing original-shortcut backups. Shortcut replacements use temporary files and atomic renames, so an existing hard link cannot alter another file. Failed upgrades attempt to restore the previous installation and shortcut contents. If rollback cannot finish, the installer reports the affected path rather than claiming success.
+The installer refuses root execution, overlapping source/install paths, symlinks in copied source files, damaged installation records, and missing original-shortcut backups. It replaces shortcuts atomically to avoid altering files that share an existing hard link. On a failed upgrade it tries to restore the old installation and reports any incomplete rollback.
 
-The private GitHub repository has Dependabot vulnerability alerts enabled. Its test workflow has read-only repository permission and does not keep checkout credentials in the job workspace. Alerts and tests help identify problems; they do not make downloaded software trustworthy on their own. Install from the authenticated private repository or its release page.
+The private repository has [GitHub dependency alerts](https://github.com/Mordeton/wifi-antenna-tuner/security/dependabot) enabled. Its CI job has read-only repository permission and does not retain checkout credentials. Install from the authenticated repository or its release page.
 
-## Find a good placement
+<details>
+<summary>Measurement details and limits</summary>
 
-1. Watch the big **signal strength** number while moving or rotating the antenna. Less-negative numbers are stronger: **−50 dBm is stronger than −70 dBm**.
-2. Hold each position for at least two seconds. Compare the **two-second average** and the graph, not just a momentary peak. **Best average** keeps the strongest settled reading this session; **Reset best** starts a fresh comparison.
-3. Check router latency and loss for stability. Router response time is affected by router load and power saving too, so use it alongside signal strength.
-4. Expand **Stats for nerds** for radio link rates, actual traffic, driver averages, per-chain signal, retries, and latency statistics. The section stays open as readings update.
-5. Adjust **Sensitivity** to match your task: **1×** shows a broad 60 dB range, **3×** (the default) shows 20 dB, and **10×** shows 6 dB for fine placement changes. Higher values magnify small changes in the bar, graph, and audio. Use **Recenter** to center the range on the current two-second average; the range stays fixed while you move the antenna. Changing sensitivity also recenters it. At 1× the overview stays fixed at −90 to −30 dBm.
-6. Enable **Sound**, then choose **Faster beeps**, **Continuous pitch**, or **Pitch + beeps**. Stronger signal means quicker beeps, higher pitch, or both. The app starts muted; the volume slider affects only this app. Continuous audio uses a running oscillator with smooth transitions rather than repeatedly restarting tone files.
-7. Use **Fullscreen** / **F11** when standing away from the PC; **Escape** exits fullscreen.
+- The app polls `iw` every 250 ms, but the driver may repeat the same radio sample. RX inactivity and sample age in the details panel help show freshness. Missing or stale data is marked unavailable.
+- The graph keeps 60 seconds of signal values and a trailing two-second arithmetic average of dBm readings. Best signal requires two seconds of continuous valid samples. Changing adapter, access point, or frequency resets comparison history and counter baselines.
+- Link rates are negotiated radio rates. Measured traffic uses changes in adapter byte counters and is not an internet speed test. Counter decreases reset the affected baseline.
+- Per-chain numbers are driver identifiers, not labels for particular external antenna elements. Some drivers omit these or other statistics.
+- Router probes run four times per second with a one-second reply deadline. The 30-second loss calculation excludes pending probes; RTT variation is the population standard deviation of replies. A delayed result never replaces a newer probe's result.
 
-Sensitivity changes feedback, not the radio measurements. The large dBm number and the two-second average/best stay accurate and unchanged. For sound, the averaging window shortens from two seconds at 1× to 0.2 seconds at 10× (effectively the latest available 250 ms reading). High sensitivity makes small variations more apparent; it cannot extract precision the Wi-Fi driver does not report. If the meter reaches an edge, use **Recenter** or reduce sensitivity. Sound stops when readings become stale or Wi-Fi disconnects.
+</details>
 
-## Cisco signal-quality meter
+## Development
 
-The separate **Cisco signal quality** meter puts the current live reading on a fixed five-level scale from [Cisco's IW9167E RSSI guidance](https://www.cisco.com/c/en/us/td/docs/IIOT/wireless/iw9167e/software/config/262x/iw9167-scg-262x/g_manage-the-workgroup-bridges-through-web-ui_wgb/t_modify-rssi-threshold.html). It shows a moving pointer, the current rating, and a short explanation. Sensitivity and Recenter do not affect its rating.
-
-| Rating | App's range |
-| --- | --- |
-| Excellent | −50 dBm or stronger |
-| Good | −60 dBm up to, but below, −50 dBm |
-| Fair | −70 dBm up to, but below, −60 dBm |
-| Weak | −80 dBm up to, but below, −70 dBm |
-| Very poor | Below −80 dBm |
-
-Cisco's published ranges share endpoints. The app assigns an exact boundary to the stronger band and keeps readings stronger than −30 dBm in Excellent. Its pointer clamps to the visual endpoints (−100 to −30 dBm); the displayed number is never clipped. Missing or stale readings remove the pointer and show **No live reading**. This is signal-strength guidance for this Cisco reference, not a measurement of interference or a guarantee of connection speed; use latency and packet loss alongside it.
-
-## What the numbers mean
-
-- Signal is polled every 250 ms. Polling faster does not guarantee the Wi-Fi driver has a newer radio sample; the driver's RX inactivity is shown in details. Repeated values are normal.
-- The graph covers the last 60 seconds. Its vertical scale follows the selected sensitivity range, whose bounds are shown beneath the meter. The large numerical reading is never clipped to that range. The faint line is live signal and the bold line is a trailing two-second arithmetic average of dBm readings.
-- Best signal is recorded after two seconds of continuous valid readings. Moving to another adapter, access point, or frequency, or reconnecting, starts a new comparison. A sampling interruption breaks the averaging window.
-- Per-chain values are driver identifiers and are not a reliable mapping to particular external antenna elements. Unreported measurements are marked unavailable.
-- Link rates describe the last reported radio transmission/reception rates, **not internet speed**. Actual traffic is calculated from byte-counter differences. Traffic is not a controlled throughput benchmark.
-- Retry/failure/packet changes are counts since the preceding sample, not percentages. Counter decreases reset the affected baseline rather than producing negative traffic.
-- Router probes run four times per second, bound to the selected Wi-Fi interface, with a one-second reply deadline. No reply can also mean a router filters ICMP; it does not prove Wi-Fi failed.
-- Loss uses completed probes in the trailing 30-second window; pending probes are shown separately and excluded. RTT variation is the population standard deviation of replies in that window. A delayed result never overwrites a newer probe's result.
-- Network settings are never changed. The app does not scan for networks, tune transmit power, reconnect Wi-Fi, or send internet speed-test traffic. Histories stay in memory and disappear when the app exits.
-
-## Development and verification
+Run the tests on Linux with PySide6 available:
 
 ```sh
-cd wifi-antenna-tuner
-QT_QPA_PLATFORM=offscreen /usr/bin/python3 -m unittest discover -s tests -v
+QT_QPA_PLATFORM=offscreen python3 -m unittest discover -s tests -v
 ```
 
-The application separates parsing/calculations (`model.py`), feedback sensitivity (`feedback.py`), asynchronous commands and probe lifecycle (`backend.py`), streaming audio (`audio.py`), and Qt widgets (`ui.py`). Tests use synthetic fixtures and processes, without changing Wi-Fi settings. Audio tests verify pitch direction, beep cadence, continuity across chunks, sensitivity scaling, and stale-signal muting. Installer tests verify shortcut choices, portable paths, upgrades, rollback, and preservation of existing/user-edited shortcuts. GitHub Actions runs the suite on Linux with Python 3.12 and 3.14.
-
-For development, run `./launch.sh` from the source checkout with PySide6 installed, or use the installed runtime. Installation is optional for development.
+Parsing and calculations are separate from the Qt interface. The test suite covers malformed and missing adapter output, connection changes, averaging, probe timing, audio behavior, installer rollback, and shortcut safety. [GitHub Actions](https://github.com/Mordeton/wifi-antenna-tuner/actions) runs the suite on Python 3.12 and 3.14. For development, run `./launch.sh` from the source checkout; installation is optional.
