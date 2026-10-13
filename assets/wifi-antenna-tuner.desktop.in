@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Wi-Fi Antenna Tuner
+GenericName=Wi-Fi Signal Monitor
+Comment=Find a better antenna position with live signal and router latency meters
+Exec=@EXEC@
+Icon=@ICON@
+Terminal=false
+Categories=Network;
+Keywords=wifi;wi-fi;wireless;antenna;signal;latency;tuner;
+StartupNotify=true
+X-WifiAntennaTuner-Managed=true
